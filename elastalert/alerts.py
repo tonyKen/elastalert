@@ -27,6 +27,7 @@ from aliyunsdkcore.http import format_type as FT
 import boto3
 import requests
 import stomp
+import const
 from exotel import Exotel
 from jira.client import JIRA
 from jira.exceptions import JIRAError
@@ -892,7 +893,7 @@ class CommandAlerter(Alerter):
         self.last_command = []
 
         self.shell = False
-        self.acs_client = AcsClient("ACCESS_KEY_ID", "ACCESS_KEY_SECRET", "cn-hangzhou")
+        self.acs_client = AcsClient(const.ACCESS_KEY_ID, const.ACCESS_KEY_SECRET, "cn-hangzhou")
         region_provider.add_endpoint("Dysmsapi", "cn-hangzhou", "dysmsapi.aliyuncs.com")
 
         if isinstance(self.rule['command'], basestring):
@@ -907,7 +908,6 @@ class CommandAlerter(Alerter):
 
 
     def alert(self, matches):
-        # Format the command and arguments
         try:
             command = [resolve_string(command_arg, matches[0]) for command_arg in self.rule['command']]
             self.last_command = command
@@ -922,14 +922,18 @@ class CommandAlerter(Alerter):
                 match_json = json.dumps(matches, cls=DateTimeEncoder) + '\n'
                 stdout, stderr = subp.communicate(input=match_json)
 
-                self.send_sms("","","",match_json)
+                self.send_sms(match_json)
+                elastalert_logger.info("pipe_match_json %s" % match_json)
             elif self.rule.get('pipe_alert_text'):
                 alert_text = self.create_alert_body(matches)
                 stdout, stderr = subp.communicate(input=alert_text)
 
-                self.send_sms("","","",alert_text)
+                self.send_sms(alert_text)
+                elastalert_logger.info("pipe_alert_text %s" % alert_text)
             if self.rule.get("fail_on_non_zero_exit", False) and subp.wait():
                 raise EAException("Non-zero exit code while running command %s" % (' '.join(command)))
+            self.send_sms(None)
+            elastalert_logger.info("fail_on_non_zero_exit")
         except OSError as e:
             raise EAException("Error while running command %s: %s" % (' '.join(command), e))
 
@@ -937,20 +941,20 @@ class CommandAlerter(Alerter):
         return {'type': 'command',
                 'command': ' '.join(self.last_command)}
 
-    def send_sms(self,phone_numbers, sign_name, template_code, template_param=None):
+    def send_sms(self, template_param=None):
         smsRequest = SendSmsRequest.SendSmsRequest()
         # 申请的短信模板编码,必填
-        smsRequest.set_TemplateCode("SMS_140050074")
+        smsRequest.set_TemplateCode(const.TEMPLATE_CODE)
 
         # 短信模板变量参数
         if template_param is not None:
             smsRequest.set_TemplateParam(template_param)
         smsRequest.set_OutId(str(uuid.uuid4()))
-        smsRequest.set_SignName(sign_name)
+        smsRequest.set_SignName(const.SIGN_NAME)
         smsRequest.set_method(MT.POST)
         smsRequest.set_accept_format(FT.JSON)
         # 短信发送的号码列表，必填。
-        smsRequest.set_PhoneNumbers(phone_numbers)
+        smsRequest.set_PhoneNumbers(const.PHONE_NUMBERS)
         self.acs_client.do_action_with_exception(smsRequest)
         elastalert_logger.info("HTTP Post SMS alert sent.")
 
