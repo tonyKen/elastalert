@@ -27,6 +27,7 @@ setup(
     packages=find_packages(),
     package_data={'elastalert': ['schema.yaml']},
     install_requires=[
+        'aliyun-python-sdk-core-v3>=2.3.5',
         'aws-requests-auth>=0.3.0',
         'blist>=1.3.6',
         'boto3>=1.4.4',

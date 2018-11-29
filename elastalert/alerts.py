@@ -18,6 +18,12 @@ from smtplib import SMTPAuthenticationError
 from smtplib import SMTPException
 from socket import error
 
+from aliyunsdkdysmsapi.request.v20170525 import SendSmsRequest
+from aliyunsdkcore.client import AcsClient
+from aliyunsdkcore.profile import region_provider
+from aliyunsdkcore.http import method_type as MT
+from aliyunsdkcore.http import format_type as FT
+
 import boto3
 import requests
 import stomp
@@ -1900,6 +1906,8 @@ class HTTPPostAlerter(Alerter):
         self.post_all_values = self.rule.get('http_post_all_values', not self.post_payload)
         self.post_http_headers = self.rule.get('http_post_headers', {})
         self.timeout = self.rule.get('http_post_timeout', 10)
+        self.acs_client = AcsClient("ACCESS_KEY_ID", "ACCESS_KEY_SECRET", "cn-hangzhou")
+        region_provider.add_endpoint("Dysmsapi", "cn-hangzhou", "dysmsapi.aliyuncs.com")
 
     def alert(self, matches):
         """ Each match will trigger a POST to the specified endpoint(s). """
@@ -1912,6 +1920,7 @@ class HTTPPostAlerter(Alerter):
                 "Content-Type": "application/json",
                 "Accept": "application/json;charset=utf-8"
             }
+            self.send_sms("","","",json.dumps(payload, cls=DateTimeEncoder))
             headers.update(self.post_http_headers)
             proxies = {'https': self.post_proxy} if self.post_proxy else None
             for url in self.post_url:
@@ -1926,6 +1935,26 @@ class HTTPPostAlerter(Alerter):
     def get_info(self):
         return {'type': 'http_post',
                 'http_post_webhook_url': self.post_url}
+
+
+    def send_sms(self,phone_numbers, sign_name, template_code, template_param=None):
+      smsRequest = SendSmsRequest.SendSmsRequest()
+      # 申请的短信模板编码,必填
+      smsRequest.set_TemplateCode("SMS_140050074")
+
+      # 短信模板变量参数
+      if template_param is not None:
+        smsRequest.set_TemplateParam(template_param)
+      smsRequest.set_OutId(str(uuid.uuid4()))
+      smsRequest.set_SignName(sign_name)
+      smsRequest.set_method(MT.POST)
+      smsRequest.set_accept_format(FT.JSON)
+      # 短信发送的号码列表，必填。
+      smsRequest.set_PhoneNumbers(phone_numbers)
+
+      self.acs_client.do_action_with_exception(smsRequest)
+
+      elastalert_logger.info("HTTP Post SMS alert sent.")
 
 
 class StrideHTMLParser(HTMLParser):
