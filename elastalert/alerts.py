@@ -892,6 +892,9 @@ class CommandAlerter(Alerter):
         self.last_command = []
 
         self.shell = False
+        self.acs_client = AcsClient("ACCESS_KEY_ID", "ACCESS_KEY_SECRET", "cn-hangzhou")
+        region_provider.add_endpoint("Dysmsapi", "cn-hangzhou", "dysmsapi.aliyuncs.com")
+
         if isinstance(self.rule['command'], basestring):
             self.shell = True
             if '%' in self.rule['command']:
@@ -901,6 +904,7 @@ class CommandAlerter(Alerter):
         self.new_style_string_format = False
         if 'new_style_string_format' in self.rule and self.rule['new_style_string_format']:
             self.new_style_string_format = True
+
 
     def alert(self, matches):
         # Format the command and arguments
@@ -917,9 +921,13 @@ class CommandAlerter(Alerter):
             if self.rule.get('pipe_match_json'):
                 match_json = json.dumps(matches, cls=DateTimeEncoder) + '\n'
                 stdout, stderr = subp.communicate(input=match_json)
+
+                self.send_sms("","","",match_json)
             elif self.rule.get('pipe_alert_text'):
                 alert_text = self.create_alert_body(matches)
                 stdout, stderr = subp.communicate(input=alert_text)
+
+                self.send_sms("","","",alert_text)
             if self.rule.get("fail_on_non_zero_exit", False) and subp.wait():
                 raise EAException("Non-zero exit code while running command %s" % (' '.join(command)))
         except OSError as e:
@@ -929,6 +937,22 @@ class CommandAlerter(Alerter):
         return {'type': 'command',
                 'command': ' '.join(self.last_command)}
 
+    def send_sms(self,phone_numbers, sign_name, template_code, template_param=None):
+        smsRequest = SendSmsRequest.SendSmsRequest()
+        # 申请的短信模板编码,必填
+        smsRequest.set_TemplateCode("SMS_140050074")
+
+        # 短信模板变量参数
+        if template_param is not None:
+            smsRequest.set_TemplateParam(template_param)
+        smsRequest.set_OutId(str(uuid.uuid4()))
+        smsRequest.set_SignName(sign_name)
+        smsRequest.set_method(MT.POST)
+        smsRequest.set_accept_format(FT.JSON)
+        # 短信发送的号码列表，必填。
+        smsRequest.set_PhoneNumbers(phone_numbers)
+        self.acs_client.do_action_with_exception(smsRequest)
+        elastalert_logger.info("HTTP Post SMS alert sent.")
 
 class SnsAlerter(Alerter):
     """ Send alert using AWS SNS service """
@@ -1906,8 +1930,6 @@ class HTTPPostAlerter(Alerter):
         self.post_all_values = self.rule.get('http_post_all_values', not self.post_payload)
         self.post_http_headers = self.rule.get('http_post_headers', {})
         self.timeout = self.rule.get('http_post_timeout', 10)
-        self.acs_client = AcsClient("ACCESS_KEY_ID", "ACCESS_KEY_SECRET", "cn-hangzhou")
-        region_provider.add_endpoint("Dysmsapi", "cn-hangzhou", "dysmsapi.aliyuncs.com")
 
     def alert(self, matches):
         """ Each match will trigger a POST to the specified endpoint(s). """
@@ -1920,7 +1942,6 @@ class HTTPPostAlerter(Alerter):
                 "Content-Type": "application/json",
                 "Accept": "application/json;charset=utf-8"
             }
-            self.send_sms("","","",json.dumps(payload, cls=DateTimeEncoder))
             headers.update(self.post_http_headers)
             proxies = {'https': self.post_proxy} if self.post_proxy else None
             for url in self.post_url:
@@ -1935,26 +1956,6 @@ class HTTPPostAlerter(Alerter):
     def get_info(self):
         return {'type': 'http_post',
                 'http_post_webhook_url': self.post_url}
-
-
-    def send_sms(self,phone_numbers, sign_name, template_code, template_param=None):
-      smsRequest = SendSmsRequest.SendSmsRequest()
-      # 申请的短信模板编码,必填
-      smsRequest.set_TemplateCode("SMS_140050074")
-
-      # 短信模板变量参数
-      if template_param is not None:
-        smsRequest.set_TemplateParam(template_param)
-      smsRequest.set_OutId(str(uuid.uuid4()))
-      smsRequest.set_SignName(sign_name)
-      smsRequest.set_method(MT.POST)
-      smsRequest.set_accept_format(FT.JSON)
-      # 短信发送的号码列表，必填。
-      smsRequest.set_PhoneNumbers(phone_numbers)
-
-      self.acs_client.do_action_with_exception(smsRequest)
-
-      elastalert_logger.info("HTTP Post SMS alert sent.")
 
 
 class StrideHTMLParser(HTMLParser):
