@@ -940,8 +940,6 @@ class CommandAlerter(Alerter):
                 elastalert_logger.info("pipe_alert_text %s" % alert_text)
             if self.rule.get("fail_on_non_zero_exit", False) and subp.wait():
                 raise EAException("Non-zero exit code while running command %s" % (' '.join(command)))
-            self.send_sms(None)
-            elastalert_logger.info("fail_on_non_zero_exit")
         except OSError as e:
             raise EAException("Error while running command %s: %s" % (' '.join(command), e))
 
