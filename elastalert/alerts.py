@@ -929,8 +929,8 @@ class CommandAlerter(Alerter):
                 for matche in matches:
                     server += matche['host']+","
                     service_name += matche['serviceName']+","
-                    error_number += matche['num_hits']+","
-                params = "{\"server\":\"%s\",\"service_name\":\"s\",\"error_number\":\"s\"}" %(server,service_name,error_number)
+                    error_number += str(matche['num_hits'])+","
+                params = "{\"server\":\"%s\",\"service_name\":\"%s\",\"error_number\":\"%s\"}" %(server,service_name,error_number)
                 self.send_sms(params)
             elif self.rule.get('pipe_alert_text'):
                 alert_text = self.create_alert_body(matches)
