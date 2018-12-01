@@ -956,7 +956,7 @@ class CommandAlerter(Alerter):
         # 短信发送的号码列表，必填。
         smsRequest.set_PhoneNumbers(const.PHONE_NUMBERS)
         smsResponse = self.acs_client.do_action_with_exception(smsRequest)
-        elastalert_logger.info("command SMS alert sent %s: %s" % (json.dumps(smsRequest),smsResponse))
+        elastalert_logger.info("command SMS alert sent %s: %s" % (json.dumps(smsRequest.__dict__),smsResponse))
 
 class SnsAlerter(Alerter):
     """ Send alert using AWS SNS service """
