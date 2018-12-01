@@ -921,9 +921,17 @@ class CommandAlerter(Alerter):
             if self.rule.get('pipe_match_json'):
                 match_json = json.dumps(matches, cls=DateTimeEncoder) + '\n'
                 stdout, stderr = subp.communicate(input=match_json)
-
-                self.send_sms(match_json)
                 elastalert_logger.info("pipe_match_json %s" % match_json)
+
+                server = ""
+                service_name = ""
+                error_number = ""
+                for matche in matches:
+                    server += matche['host']+","
+                    service_name += matche['serviceName']+","
+                    error_number += matche['num_hits']+","
+                params = "{\"server\":\"%s\",\"service_name\":\"s\",\"error_number\":\"s\"}" %(server,service_name,error_number)
+                self.send_sms(params)
             elif self.rule.get('pipe_alert_text'):
                 alert_text = self.create_alert_body(matches)
                 stdout, stderr = subp.communicate(input=alert_text)
