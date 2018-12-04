@@ -19,10 +19,13 @@
 # Rule name, must be unique
 name: errorlog rule
 
+realert:
+  minutes: 5
+
 # (Required)
 # Type of alert.
 # the frequency rule type alerts when num_events events occur with timeframe time
-type: any
+type: frequency
 
 # (Required)
 # Index to search, wildcard supported
@@ -30,12 +33,13 @@ index: micro-*
 
 # (Required, frequency specific)
 # Alert when this many documents matching the query occur within a timeframe
-#num_events: 50
+num_events: 5
 
 # (Required, frequency specific)
 # num_events must occur within this amount of time to trigger an alert
-#timeframe:
+timeframe:
 #  hours: 4
+  minutes: 1
 
 # (Required)
 # A list of Elasticsearch filters used for find events
@@ -50,5 +54,5 @@ filter:
 # The alert is use when a match is found
 alert:
 - "command"
-
+pipe_match_json: true
 command: ['date']
